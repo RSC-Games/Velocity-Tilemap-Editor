@@ -1,0 +1,13 @@
+{
+    "java.project.referencedLibraries": {
+        "include": [
+            "lib/**/*.jar"
+        ],
+        "exclude": [
+            "lib/vxra/LumaViper_CPU.jar",
+            "lib/vxra/LumaViper_DirectX11.jar",
+            "lib/ogl/lwjgl-stb.jar",
+            "lib/vxra/LumaViper_OpenGL.jar"
+        ]
+    }
+}
