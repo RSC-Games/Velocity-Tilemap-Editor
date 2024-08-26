@@ -64,6 +64,9 @@ public class TilePalette {
         Path path = Path.of(inPath);
         Path cwd = Path.of(System.getProperty("user.dir"));
         String relPath = cwd.relativize(path).toString();
+
+        if (!path.toFile().exists())
+            return -1;
         
         // Get the tileID.
         String id = relPath.substring((folderPath + "/" + assetPrefix).length() - 2, relPath.length() - (fileExt.length() + 1));

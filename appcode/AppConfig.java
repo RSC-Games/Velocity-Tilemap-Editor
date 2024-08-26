@@ -31,8 +31,8 @@ public class AppConfig extends GlobalAppConfig {
         WARNINGS_FATAL = false;  // Halt execution on warn messages.
 
         /************************ DEBUGGING *****************************/
-        LOG_GC = false;  // Enable GC logging messages. Useful for engine debugging.
-        LOG_MEMORY = false;  // Log memory allocation/deallocations for sprites.
+        LOG_GC = true;  // Enable GC logging messages. Useful for engine debugging.
+        LOG_MEMORY = true;  // Log memory allocation/deallocations for sprites.
 
         /********************* RENDERER DEBUGGING ***********************/
         SUPPRESS_UNSTABLE_RENDERER_WARNING = true;  // The unsupported renderer message is annoying.

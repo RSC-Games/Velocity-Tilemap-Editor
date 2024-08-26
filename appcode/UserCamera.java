@@ -1,15 +1,14 @@
 package appcode;
 
-import java.awt.event.KeyEvent;
-
-import org.lwjgl.glfw.GLFW;
+import java.awt.event.MouseEvent;
 
 import velocity.InputSystem;
 import velocity.sprite.camera.Base2DCamera;
 import velocity.util.Point;
 
 public class UserCamera extends Base2DCamera {
-    int speed = 10;
+    int speed = -1;
+    Point lastFrameMousePos = Point.zero;
 
     public UserCamera(Point pos) {
         super(pos);
@@ -19,11 +18,16 @@ public class UserCamera extends Base2DCamera {
     public void tick() {
         super.tick();
 
-        // Don't simulate if control is being used.
-        if (InputSystem.getKey(KeyEvent.VK_CONTROL) || InputSystem.getKey(GLFW.GLFW_KEY_LEFT_CONTROL)) 
-            return;
+        // Update mouse relative.
+        Point mouseCoords = InputSystem.getMousePos();
+        Point relative = mouseCoords.sub(lastFrameMousePos);
 
-        Point moveCameraVec = new Point(InputSystem.getAxis(KeyEvent.VK_D, KeyEvent.VK_A), InputSystem.getAxis(KeyEvent.VK_S, KeyEvent.VK_W));
-        this.pos.translate(moveCameraVec.mult(speed));
+        // Allow camera panning if the middle mouse button is pressed.
+        if (InputSystem.clicked(MouseEvent.BUTTON2)) {
+            Point moveCameraVec = relative; //new Point(InputSystem.getAxis(KeyEvent.VK_D, KeyEvent.VK_A), InputSystem.getAxis(KeyEvent.VK_S, KeyEvent.VK_W));
+            this.pos.translate(moveCameraVec.mult(speed));
+        }
+
+        lastFrameMousePos = mouseCoords;
     }
 }

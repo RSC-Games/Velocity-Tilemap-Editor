@@ -1,0 +1,28 @@
+Tilemap editor keybinds:
+
+CTRL + O: Open file
+CTRL + S: Save current tilemap.
+CTRL + G: Eyedropper (get tile type)
+CTRL + T: Open tile
+Tab: Enter edit mode
+QE: Ascend (E)/Decend(Q) a layer.
+Middle mouse button: Pan camera.
+Left click: Place tile. (edit tile in edit mode)
+Right click: Delete tile. (mark tile as collidable in edit mode)
+
+Tile edit mode:
+DONE: ESCAPE: Exit to tilemap menu.
+DONE: W: Set tile animation wait time (in ms).
+I: Set illumination.
+R: Set light radius.
+DONE: CTRL + C: Copy tile (get tile ID)
+DONE: CTRL + T: Open tile
+DONE: +/-: Increment/decrement active frame.
+Space: Start/stop playback.
+DONE: Left click: Action (set tile at frame, N/A, N/A)
+Right click: Alt action (remove tile at frame, enable/disable light, enable/disable collision)
+Shift + Left click: Action (set multiple tiles, N/A, N/A)
+
+CTRL + 1: Animation mode.
+CTRL + 2: Lighting mode.
+CTRL + 3: Collision mode.

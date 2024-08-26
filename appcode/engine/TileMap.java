@@ -7,7 +7,6 @@ import velocity.renderer.FrameBuffer;
 import velocity.renderer.RendererImage;
 import velocity.sprite.Renderable;
 import velocity.util.Counter;
-import velocity.util.Logger;
 import velocity.util.Point;
 import velocity.util.TextFile;
 
@@ -39,24 +38,24 @@ public class TileMap extends Renderable {
      * Chunk size of the tile array. The tilemap itself is made of a large amount of chunks.
      * Larger chunks may reduce hashmap collisions but also use more memory.
      */
-    private static final int CHUNK_SIZE = 16;
+    protected static final int CHUNK_SIZE = 16;
 
     /**
      * Internal tilemap and chunk lookup. Stored in 3 dimensions. The outermost index is the X and
      * Y index for locating a chunk. The inner index, Z, is fully walked for tile layering and
      * sorting if a given chunk is rendered.
      */
-    HashMap<String, HashMap<Integer, TileBase[][]>> tilemap;
+    protected HashMap<String, HashMap<Integer, TileBase[][]>> tilemap;
 
     /**
      * The tile palette used for texture lookups.
      */
-    TilePalette palette;
+    protected TilePalette palette;
 
     /**
      * Counter for keeping track of the elapsed milliseconds for animations.
      */
-    Counter animCounter;
+    protected Counter animCounter;
 
     /**
      * 
@@ -69,6 +68,7 @@ public class TileMap extends Renderable {
 
         this.tilemap = new HashMap<String, HashMap<Integer, TileBase[][]>>();
         this.palette = new TilePalette(palletePath);
+        this.animCounter = new Counter();
         
         try {
             loadMapFromFile(mapPath);
@@ -114,7 +114,7 @@ public class TileMap extends Renderable {
 
             tileData.strip();
             String[] tileInfo = tileData.split("[\\s,]+");
-            System.out.println(Arrays.toString(tileInfo));
+            //System.out.println(Arrays.toString(tileInfo));
 
             // First index is empty. Remaining data will be on the next indices.
             // This index will be trimmed out.
@@ -141,8 +141,8 @@ public class TileMap extends Renderable {
                 frameVals[i] = Integer.parseInt(tileInfo[4+i]);
 
             // Jump past the end of the frames.
-            int readPtr = 3 + animFrames;
-            int waitTime = Integer.parseInt(tileInfo[readPtr++]);
+            int readPtr = 4 + animFrames;
+            int waitTime = animFrames > 1 ? Integer.parseInt(tileInfo[readPtr++]) : 150;
 
             // Collidable only seached for if not a floor tile (< 1 layer). 
             boolean isCollidable = false;
@@ -151,7 +151,7 @@ public class TileMap extends Renderable {
 
             // Create the tile and insert it into the layer.
             TileBase tile = new TileBase(frameVals, waitTime, isCollidable);
-            System.out.println("frames (cnt " + animFrames + ") " + Arrays.toString(frameVals) + " waitTime " + waitTime + " collidable " + isCollidable);
+            //System.out.println("frames (cnt " + animFrames + ") " + Arrays.toString(frameVals) + " waitTime " + waitTime + " collidable " + isCollidable);
             addTileToLayer(layerArray, worldTileToLocal(tileCoords), tile);
         }
     }
@@ -173,17 +173,17 @@ public class TileMap extends Renderable {
 
         // Read the tiles from the file and decode them.
         for (String coords : tilemap.keySet()) {
-            System.out.println("Saving chunk " + coords);
+            //System.out.println("Saving chunk " + coords);
             HashMap<Integer, TileBase[][]> chunk = tilemap.get(coords);
             String[] partialCoords = coords.split("~");
 
             // Convert chunk coordinates to global tilespace.
             Point trueChunkCoords = new Point(Integer.parseInt(partialCoords[0]), Integer.parseInt(partialCoords[1]));
             trueChunkCoords = trueChunkCoords.mult(CHUNK_SIZE);
-            System.out.println("Chunk coords in tile space " + trueChunkCoords);
+            //System.out.println("Chunk coords in tile space " + trueChunkCoords);
 
             for (int layer : chunk.keySet()) {
-                System.out.println("Saving layer " + layer);
+                //System.out.println("Saving layer " + layer);
                 TileBase[][] tileArray = chunk.get(layer);
 
                 for (int x = 0; x < CHUNK_SIZE; x++) {
@@ -192,11 +192,11 @@ public class TileMap extends Renderable {
                     if (tile == null) continue;
 
                     Point trueTilePos = trueChunkCoords.add(new Point(x, y));
-                    System.out.println("trueTilePos " + trueTilePos);
+                    //System.out.println("trueTilePos " + trueTilePos);
 
-                    System.out.println("Saving tile index " + x + ", " + y);
+                    //System.out.println("Saving tile index " + x + ", " + y);
                     String tileData = encodeTile(tile, trueTilePos, layer);
-                    System.out.println("tile data: " + tileData);
+                    //System.out.println("tile data: " + tileData);
 
                     try {
                         mapFile.write(tileData);
@@ -262,8 +262,6 @@ public class TileMap extends Renderable {
      * @return The chunk at the location.
      */
     private HashMap<Integer, TileBase[][]> getChunkSafe(Point chunkCoords) {
-        System.out.println("reading chunk index " + chunkCoords);
-
         String lookupCoords = chunkCoords.x + "~" + chunkCoords.y;
         if (tilemap.containsKey(lookupCoords))
             return tilemap.get(lookupCoords);
@@ -321,9 +319,21 @@ public class TileMap extends Renderable {
 
         // Ensure a tile isn't already present.
         //if (layer[localTileCoords.x][localTileCoords.y] != tile)
-        Logger.log("tilemap", "Overwrote old tile at " + tileCoords + " (local " + localTileCoords + ")");
+        //Logger.log("tilemap", "Overwrote old tile at " + tileCoords + " (local " + localTileCoords + ")");
 
         layer[localTileCoords.x][localTileCoords.y] = tile;
+    }
+
+    /**
+     * Write a tile into the tilemap, overwriting one already present.
+     * 
+     * @param layer Layer to add the tile.
+     * @param tileCoords Location of the tile in world space.
+     * @param tile Tile to add.
+     */
+    private TileBase readTileOnLayer(TileBase[][] layer, Point tileCoords) {
+        Point localTileCoords = tileCoords.mod(CHUNK_SIZE);
+        return layer[localTileCoords.x][localTileCoords.y];
     }
 
     /**
@@ -340,9 +350,26 @@ public class TileMap extends Renderable {
         HashMap<Integer, TileBase[][]> chunk = getChunkSafe(chunkPos);
 
         // Get the layer to insert this tile in. (Index 3)
-        System.out.println("locations: worldPos " + worldPos + " tilePos " + tilePos + " chunkPos " + chunkPos + " chunkTilePos" + worldTileToLocal(tilePos));
         TileBase[][] layerArray = getLayerFromChunk(chunk, inLayer);
         writeTileOnLayer(layerArray, worldTileToLocal(tilePos), tile);
+    }
+
+    /**
+     * Set a tile on the tilemap.
+     * 
+     * @param worldPos Pointer location in world space.
+     * @param inLayer Chunk layer.
+     * @param tile Tile to inject.
+     */
+    public TileBase getTile(Point worldPos, int inLayer) {
+        //Point tilePos = worldPos.div(palette.stride());
+        Point tilePos = worldToWorldTile(worldPos);
+        Point chunkPos = worldTileToChunk(tilePos);
+        HashMap<Integer, TileBase[][]> chunk = getChunkSafe(chunkPos);
+
+        // Get the layer to insert this tile in. (Index 3)
+        TileBase[][] layerArray = getLayerFromChunk(chunk, inLayer);
+        return readTileOnLayer(layerArray, worldTileToLocal(tilePos));
     }
 
     /**
@@ -454,7 +481,12 @@ public class TileMap extends Renderable {
                 Rect tileRect = new Rect(finalLoc, new Point(0, 0));
                 tileRect.setWH(new Point(stride, stride));
 
-                RendererImage texture = palette.lookupTex(tile.tileIDs[0]);
+                // Calculate frame to display.
+                int frame = 0;
+                if (tile.tileIDs.length > 1 && tile.waitTime > 0)
+                    frame = (animCounter.elapsedms() / tile.waitTime) % tile.tileIDs.length;
+
+                RendererImage texture = palette.lookupTex(tile.tileIDs[frame]);
                 DrawInfo info = new DrawInfo(tileRect, d.rot, d.scale, d.drawLayer);
                 fb.drawShaded(texture, info);
             }}

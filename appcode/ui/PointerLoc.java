@@ -10,8 +10,9 @@ import velocity.sprite.ui.UIText;
 public class PointerLoc extends UIText {
     TilemapCursor cursor;
 
-    public PointerLoc(Point pos, int rot, String name, Color c) {
+    public PointerLoc(Point pos, float rot, String name, Color c) {
         super(pos, rot, name, "Serif", c);
+        this.setSize(17);
         this.sortOrder = 1;
     }
 
@@ -27,7 +28,7 @@ public class PointerLoc extends UIText {
 
         Point worldTile = map.worldToWorldTile(cPos);
 
-        this.text = "Cursor: world tile " + cPos + " tile " + worldTile + " chunk " + map.worldTileToChunk(worldTile);
+        this.text = "Cursor: world " + cPos + " world tile " + worldTile + " chunk " + map.worldTileToChunk(worldTile);
     }
 
 }

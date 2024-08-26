@@ -10,10 +10,12 @@ import velocity.util.Point;
 
 public class TilemapCursor extends UIImage {
     int snap = 0;
+    RendererImage pointerImg;
     public Point cursorLoc = Point.zero;
 
     public TilemapCursor() {
         super(Point.zero, 0f, "Cursor", "./res/cursor.png");
+        this.pointerImg = this.img;
         this.sortOrder = -5;
     }
 
@@ -36,8 +38,11 @@ public class TilemapCursor extends UIImage {
     }
 
     public void setHoverImage(RendererImage img) {
-        this.img = img;
-        this.pos.setWH(new Point(img.getWidth(), img.getHeight()));
+        if (img == null)
+            this.img = this.pointerImg;
+        else
+            this.img = img;
+        this.pos.setWH(new Point(this.img.getWidth(), this.img.getHeight()));
     }
 
     private Point adjustPoint(Point in, Point mouseLoc) {

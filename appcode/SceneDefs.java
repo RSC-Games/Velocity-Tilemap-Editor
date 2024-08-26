@@ -19,5 +19,6 @@ public class SceneDefs extends GlobalSceneDefs {
         super();
         sceneDefs.put("TilemapEditor", TilemapEditor.class);
         sceneDefs.put("StartScene", StartScene.class);
+        sceneDefs.put("TileEditor", TileEditor.class);
     }
 }
