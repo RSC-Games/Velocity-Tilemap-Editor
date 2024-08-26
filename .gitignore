@@ -1,0 +1,6 @@
+# Exclude all game-specific content from testing.
+/tilemap_packages
+/test
+/tile_palettes
+/tilemaps
+velocity_crash_info.txt
