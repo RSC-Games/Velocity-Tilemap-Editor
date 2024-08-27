@@ -16,6 +16,7 @@ import jnafilechooser.api.JnaFileChooser;
 import velocity.InputSystem;
 import velocity.Scene;
 import velocity.renderer.RendererImage;
+import velocity.shader.include.Float2;
 import velocity.sprite.Sprite;
 import velocity.system.Images;
 import velocity.util.Persistence;
@@ -53,17 +54,16 @@ public class TileEditorManager extends Sprite {
         super(Point.zero, 0f, "Tile Editor Manager");
     }
 
-    // TODO: Show colliders in edit mode!
     @Override
     public void init() {
         selectedTile = (AnchoredUIImage)Scene.currentScene.getSpriteByName("SelectedTile");
         renderer = Scene.currentScene.getSprite(TileRenderer.class);
          
         // Fetch the tile from persistence, but leave the coordinates.
-        saved = (boolean)Persistence.pop("FileIsSaved");
-        renderer.setRenderedTile((TileBase)Persistence.pop("TileToEdit"));
         map = (TileMapRW)Persistence.pop("EditableTilemap");
         renderer.setPalette(map.getPalette());
+        saved = (boolean)Persistence.pop("FileIsSaved");
+        renderer.setRenderedTile((TileBase)Persistence.pop("TileToEdit"));
     }
     
     @Override
@@ -100,6 +100,10 @@ public class TileEditorManager extends Sprite {
                 renderer.setTileAtFrame(-1);
                 saved = false;
             }
+            else if (lightMode) {
+                renderer.setLit(!renderer.isLit());
+                saved = false;
+            }
         }
 
         // Change the wait duration for the animation.
@@ -111,13 +115,30 @@ public class TileEditorManager extends Sprite {
             saved = false;
         }
 
+        // Change the light radius.
+        if (InputSystem.getKeyUp(KeyEvent.VK_R) && lightMode) {
+            int newLightRadius = popupGetInt("Set the light radius (in px)", 
+                                          1, Integer.MAX_VALUE, 250);
+
+            renderer.setRadius(newLightRadius);
+            saved = false;
+        }
+
+        // Change the light intensity.
+        if (InputSystem.getKeyUp(KeyEvent.VK_I) && lightMode) {
+            float newIntensity = popupGetFloat("Set the light intensity (1 = normal brightness)", 
+                                          0.01f, Float.POSITIVE_INFINITY, 1.25f);
+
+            renderer.setIntensity(newIntensity);
+            saved = false;
+        }
+
         // Play/pause the animation.
         if (InputSystem.getKeyDown(KeyEvent.VK_SPACE)) {
             renderer.play(!renderer.isPlaying());
         }
 
         // Change the current frame (if in anim mode).
-        // TODO: Gray out the other layers.
         if (InputSystem.getKeyDown(KeyEvent.VK_EQUALS) && animMode)  // Plus key
             renderer.incrementFrame();
         else if (InputSystem.getKeyDown(KeyEvent.VK_MINUS) && animMode)
@@ -158,6 +179,17 @@ public class TileEditorManager extends Sprite {
                     selectedTile.pos.setWH(selectedTile.img.getWidth(), selectedTile.img.getHeight());
                     currentTileImage = selectedTile.img;
                 }
+            }
+
+            // Switch current editor mode.
+            boolean k_1 = InputSystem.getKeyDown(KeyEvent.VK_1);
+            boolean k_2 = InputSystem.getKeyDown(KeyEvent.VK_2);
+            boolean k_3 = InputSystem.getKeyDown(KeyEvent.VK_3);
+
+            if (k_1 || k_2 || k_3) {
+                animMode = k_1 && !k_2 && !k_3;
+                lightMode = !k_1 && k_2 && !k_3;
+                collisionMode = !k_1 && !k_2 && k_3;
             }
         }
     }
@@ -217,6 +249,24 @@ public class TileEditorManager extends Sprite {
             // Sanity checking.
             try {
                 int val = Integer.parseInt(res);
+
+                if (val >= min && val < max)
+                    return val;
+            }
+            catch (NumberFormatException ie) {}
+        }
+    }
+
+    private float popupGetFloat(String message, float min, float max, float initial) {
+        while (true) {
+            String res = JOptionPane.showInputDialog(message, initial);
+
+            // Empty string indicates a cancel event.
+            if (res == "") return -1;
+
+            // Sanity checking.
+            try {
+                float val = Float.parseFloat(res);
 
                 if (val >= min && val < max)
                     return val;

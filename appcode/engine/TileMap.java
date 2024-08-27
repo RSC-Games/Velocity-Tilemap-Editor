@@ -2,6 +2,7 @@ package appcode.engine;
 
 import velocity.Rect;
 import velocity.Scene;
+import velocity.lighting.PointLight;
 import velocity.renderer.DrawInfo;
 import velocity.renderer.FrameBuffer;
 import velocity.renderer.RendererImage;
@@ -21,7 +22,8 @@ import java.nio.file.Path;
  * TODO: In the future add support for multiple tile palettes on one tilemap.
  * 
  * The tilemaps are stored in this format:
- * TILE_X, TILE_Y, TILE_Z, TILE_COUNT, PALETTE_TILE_ID0...N, WAIT_TIME, IS_COLLIDABLE\n
+ * TILE_X, TILE_Y, TILE_Z, TILE_COUNT, PALETTE_TILE_ID0...N, WAIT_TIME, IS_COLLIDABLE, LIGHT_RAD, 
+ * LIGHT_INTENSITY\n
  * 
  * Where the parameters are:
  *  - TILE_X: Tile x location in tile space (converted to world space via the palette stride).
@@ -32,7 +34,11 @@ import java.nio.file.Path;
  *      state changes in the palette tile id.
  *  - IS_COLLIDABLE: Indicate whether this tile will have collision geometry generated (1 is yes,
  *      0 is no). Only tile Z coordinates > 0 can use this flag. Otherwise it's not present.
+ *  - LIGHT_RAD: Light radius in pixels. Must be >= 0.
+ *  - LIGHT_INTENSITY: Only included if LIGHT_RAD > 0. 0 is black and 1 is full brightness. HDR
+ *      brightness partially supported.
  */
+// TODO: Further shrink tile encoding.
 public class TileMap extends Renderable {
     /**
      * Chunk size of the tile array. The tilemap itself is made of a large amount of chunks.
@@ -46,6 +52,13 @@ public class TileMap extends Renderable {
      * sorting if a given chunk is rendered.
      */
     protected HashMap<String, HashMap<Integer, TileBase[][]>> tilemap;
+
+    /**
+     * Internal lighting information corresponding to the tilemap. Will be sparse by design.
+     * Lights are stored in world tile coordinates.
+     */
+    // TODO: Move lighting into TileBase.
+    protected HashMap<String, PointLight> tilemapLights;
 
     /**
      * The tile palette used for texture lookups.
@@ -67,6 +80,7 @@ public class TileMap extends Renderable {
         super(Point.zero, 0f, name);
 
         this.tilemap = new HashMap<String, HashMap<Integer, TileBase[][]>>();
+        this.tilemapLights = new HashMap<String, PointLight>();
         this.palette = new TilePalette(palletePath);
         this.animCounter = new Counter();
         
@@ -149,10 +163,17 @@ public class TileMap extends Renderable {
             if (layer > 0)
                 isCollidable = Integer.parseInt(tileInfo[readPtr++]) == 1 ? true : false;
 
+            // Load lighting illumination and radius (if available).
+            float rad = Float.parseFloat(tileInfo[readPtr++]);
+
+            float intensity = 0f;
+            if (rad > 0)
+                intensity = Float.parseFloat(tileInfo[readPtr++]);
+
             // Create the tile and insert it into the layer.
-            TileBase tile = new TileBase(frameVals, waitTime, isCollidable);
+            TileBase tile = new TileBase(frameVals, waitTime, isCollidable, intensity, rad);
             //System.out.println("frames (cnt " + animFrames + ") " + Arrays.toString(frameVals) + " waitTime " + waitTime + " collidable " + isCollidable);
-            addTileToLayer(layerArray, worldTileToLocal(tileCoords), tile);
+            addTileToLayer(layerArray, tileCoords, tile);
         }
     }
 
@@ -213,7 +234,8 @@ public class TileMap extends Renderable {
 
     /**
      * Encode the tile for writeout. File is encoded as follows:
-     * TILE_X, TILE_Y, TILE_Z, TILE_COUNT, PALETTE_TILE_ID0...N, WAIT_TIME, IS_COLLIDABLE
+     * TILE_X, TILE_Y, TILE_Z, TILE_COUNT, PALETTE_TILE_ID0...N, WAIT_TIME, IS_COLLIDABLE,
+     * LIGHT_RAD, LIGHT_INTENSITY
      * 
      * @param tile The tile to encode.
      * @param tilePos The tile's location in world tile space.
@@ -249,6 +271,15 @@ public class TileMap extends Renderable {
         if (layer > 0) {
             out.append(", ");
             out.append(tile.isCollidable ? 1 : 0);
+        }
+
+        // Add light information.
+        out.append(", ");
+        out.append(tile.lightRadius);
+
+        if (tile.lightRadius > 0) {
+            out.append(", ");
+            out.append(tile.intensity);
         }
 
         return out.toString();
@@ -298,30 +329,58 @@ public class TileMap extends Renderable {
      * @param tile Tile to add.
      */
     private void addTileToLayer(TileBase[][] layer, Point tileCoords, TileBase tile) {
-        Point localTileCoords = tileCoords.mod(CHUNK_SIZE);
+        Point localTileCoords = worldTileToLocal(tileCoords);
 
         // Ensure a tile isn't already present.
         if (layer[localTileCoords.x][localTileCoords.y] != null)
             throw new IllegalStateException("Tile already present on layer at tileCoords " + tileCoords);
 
-        layer[localTileCoords.x][localTileCoords.y] = tile;
+        writeTileOnLayer(layer, tileCoords, tile);
     }
 
     /**
-     * Write a tile into the tilemap, overwriting one already present.
+     * Write a tile into the tilemap, overwriting one already present. Update lighting data
+     * if necessary.
      * 
      * @param layer Layer to add the tile.
      * @param tileCoords Location of the tile in world space.
      * @param tile Tile to add.
      */
     private void writeTileOnLayer(TileBase[][] layer, Point tileCoords, TileBase tile) {
-        Point localTileCoords = tileCoords.mod(CHUNK_SIZE);
-
-        // Ensure a tile isn't already present.
-        //if (layer[localTileCoords.x][localTileCoords.y] != tile)
-        //Logger.log("tilemap", "Overwrote old tile at " + tileCoords + " (local " + localTileCoords + ")");
-
+        Point localTileCoords = worldTileToLocal(tileCoords);
         layer[localTileCoords.x][localTileCoords.y] = tile;
+
+        // NOTE: Only one layer will have an active light.
+        // TODO: Enforce each layer only having one light.
+        String lightIdx = tileCoords.x + "~" + tileCoords.y;
+
+        // Update lighting data.
+        if ((tile == null || tile.lightRadius <= 0) && tilemapLights.containsKey(lightIdx)) {
+            PointLight light = tilemapLights.remove(lightIdx);
+            
+            light.delete();
+            System.out.println("Deleted light at tile coords " + tileCoords + " stridx " + lightIdx);
+        }
+        else if (tile != null && tile.lightRadius > 0)
+            updateLightingData(tileCoords, lightIdx, tile);
+    }
+
+    private void updateLightingData(Point tileCoords, String lightIdx, TileBase tile) {
+        // If no light exists yet here, create one.
+        if (!tilemapLights.containsKey(lightIdx)) {
+            // Calculate the world light position (centered within a tile).
+            int stride = palette.stride();
+            Point lightWorldCoords = worldTileToWorld(tileCoords);//.add(new Point(stride, stride).div(2));
+
+            PointLight light = new PointLight(lightWorldCoords, tile.lightRadius, tile.intensity);
+            tilemapLights.put(lightIdx, light);
+            System.out.println("generated new light for tile coords " + tileCoords + " stridx " + lightIdx + " at world coords " + lightWorldCoords);
+        }
+        else {
+            PointLight light = tilemapLights.get(lightIdx);
+            light.setRadius(tile.lightRadius);
+            light.setIntensity(tile.intensity);
+        }
     }
 
     /**
@@ -351,7 +410,7 @@ public class TileMap extends Renderable {
 
         // Get the layer to insert this tile in. (Index 3)
         TileBase[][] layerArray = getLayerFromChunk(chunk, inLayer);
-        writeTileOnLayer(layerArray, worldTileToLocal(tilePos), tile);
+        writeTileOnLayer(layerArray, tilePos, tile);
     }
 
     /**
@@ -373,9 +432,10 @@ public class TileMap extends Renderable {
     }
 
     /**
+     * Convert the input world coordinates to world tile coordinates.
      * 
-     * @param worldSpace
-     * @return
+     * @param worldSpace World coordinates.
+     * @return The corresponding world tile coordinates.
      */
     public Point worldToWorldTile(Point worldSpace) {
         float x = (float)worldSpace.x / palette.stride();
@@ -389,9 +449,20 @@ public class TileMap extends Renderable {
     }
 
     /**
+     * Convert world tile coordantes to global coordinates.
      * 
-     * @param worldTile
-     * @return
+     * @param worldTileCoords World tile coordinates.
+     * @return The corresponding world coordinates.
+     */
+    public Point worldTileToWorld(Point worldTileCoords) {
+        return worldTileCoords.mult(palette.stride());
+    }
+
+    /**
+     * Convert the input world tile coordinates to chunk local tile coords.
+     * 
+     * @param worldTile The input coordinates in world tile space.
+     * @return The converted coordinates in chunk local tile coords.
      */
     public static Point worldTileToLocal(Point worldTile) {
         float x = (float)worldTile.x % CHUNK_SIZE;

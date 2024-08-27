@@ -22,6 +22,7 @@ Space: Start/stop playback.
 DONE: Left click: Action (set tile at frame, N/A, N/A)
 Right click: Alt action (remove tile at frame, enable/disable light, enable/disable collision)
 Shift + Left click: Action (set multiple tiles, N/A, N/A)
+CTRL + Left click: Action (insert tile between frames, N/A, N/A)
 
 CTRL + 1: Animation mode.
 CTRL + 2: Lighting mode.

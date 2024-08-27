@@ -2,6 +2,7 @@ package appcode;
 
 import appcode.engine.TileBase;
 import appcode.engine.TilePalette;
+import velocity.lighting.PointLight;
 import velocity.renderer.DrawInfo;
 import velocity.renderer.FrameBuffer;
 import velocity.renderer.RendererImage;
@@ -19,6 +20,8 @@ public class TileRenderer extends Renderable {
     TileBase renderedTile;
     TilePalette palette;
 
+    PointLight light;
+
     Counter animCounter;
 
     /**
@@ -27,6 +30,7 @@ public class TileRenderer extends Renderable {
     public TileRenderer() {
         super(Point.zero, 0f, "Tile Renderer");
         animCounter = new Counter();
+        light = new PointLight(this.pos.getPos(), 0, 0);
     }
 
     /**
@@ -39,12 +43,15 @@ public class TileRenderer extends Renderable {
     }
     
     /**
-     * Set the tile to edit and render.
+     * Set the tile to edit and render. NOTE! MUST BE CALLED AFTER THE PALETTE IS SET!
      * 
      * @param tile Tile to use.
      */
     public void setRenderedTile(TileBase tile) {
         this.renderedTile = tile;
+        RendererImage img = palette.lookupTex(this.renderedTile.tileIDs[0]);
+        this.pos.setWH(img.getWidth(), img.getHeight());
+        updateLight(renderedTile.lightRadius, renderedTile.intensity);
     }
 
     /**
@@ -62,8 +69,12 @@ public class TileRenderer extends Renderable {
      * @param tileID Tile ID to set.
      */
     public void setTileAtFrame(int tileID) {
+        // This is the last tile. Don't mess with it.
+        if (renderedTile.tileIDs.length == 1 && tileID == -1)
+            return;
+
         // Regenerate the tile info if the array isn't long enough.
-        if (this.frame >= renderedTile.tileIDs.length) {
+        if (this.frame >= renderedTile.tileIDs.length && tileID != -1) {
             int[] newTileIDArray = new int[renderedTile.tileIDs.length+1];
             System.arraycopy(renderedTile.tileIDs, 0, newTileIDArray, 0, renderedTile.tileIDs.length);
             renderedTile = new TileBase(newTileIDArray, renderedTile.waitTime, renderedTile.isCollidable);
@@ -96,6 +107,59 @@ public class TileRenderer extends Renderable {
      */
     public void setWaitTime(int waitTime) {
         renderedTile = new TileBase(renderedTile.tileIDs, waitTime, renderedTile.isCollidable);
+    }
+
+    /**
+     * Enable or disable lighting for this tile.
+     * 
+     * @param isLit Whether lights are on or off.
+     */
+    public void setLit(boolean isLit) {
+        // Tile already lit; don't do anything.
+        if (isLit && isLit())
+            return;
+
+        renderedTile = isLit ? new TileBase(renderedTile.tileIDs, renderedTile.waitTime, renderedTile.isCollidable, 1.25f, 250f)
+                       : new TileBase(renderedTile.tileIDs, renderedTile.waitTime, renderedTile.isCollidable);
+
+        updateLight(renderedTile.lightRadius, renderedTile.intensity);
+    }
+
+    /**
+     * 
+     * @return
+     */
+    public boolean isLit() {
+        return renderedTile.lightRadius > 0;
+    }
+
+    /**
+     * 
+     * @param radius
+     */
+    public void setRadius(float radius) {
+        light.setRadius(radius);
+        renderedTile = new TileBase(renderedTile.tileIDs, renderedTile.waitTime, renderedTile.isCollidable, renderedTile.intensity, radius);
+    }
+
+    /**
+     * 
+     * @param intensity
+     */
+    public void setIntensity(float intensity) {
+        light.setIntensity(intensity);
+        renderedTile = new TileBase(renderedTile.tileIDs, renderedTile.waitTime, renderedTile.isCollidable, intensity, renderedTile.lightRadius);
+    }
+
+    /**
+     * Update the light (to reflect the new parameters).
+     * 
+     * @param radius New light radius.
+     * @param intensity New light intensity.
+     */
+    private void updateLight(float radius, float intensity) {
+        light.setRadius(radius);
+        light.setIntensity(intensity);
     }
 
     /**
@@ -173,8 +237,12 @@ public class TileRenderer extends Renderable {
         if (this.playing && renderedTile.waitTime != 0)
             this.frame = (animCounter.elapsedms() / renderedTile.waitTime) % renderedTile.tileIDs.length;
 
-        if (this.frame < renderedTile.tileIDs.length)
-            fb.drawShaded(getTileTextureAtFrame(), d);
+        if (this.frame < renderedTile.tileIDs.length) {
+            if (isLit())
+                fb.drawShaded(getTileTextureAtFrame(), d);
+            else
+                fb.blit(getTileTextureAtFrame(), d);
+        }
     }
     
 }

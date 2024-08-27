@@ -30,10 +30,19 @@ public class TileInfoPrint extends UIText {
         int layer = tileMapDriver.getLayer();
         TileBase tile = tileMapDriver.lookupTile(layer);
 
-        if (tile == null)
+        if (tile == null) {
             this.text = "Layer " + layer + ": no tile selected";
+            return;
+        }
+
+        this.text = "Layer " + layer + ": tile: tid " + tile.tileIDs[0] + " collidable " + tile.isCollidable
+            + " frame_cnt " + tile.tileIDs.length;
+
+        // Add lighting data if present.
+        if (tile.lightRadius > 0)
+            this.text += " light: radius " + tile.lightRadius + " intensity " + tile.intensity;
         else
-            this.text = "Layer " + layer + ": tile: tid " + tile.tileIDs[0] + " collidable " + tile.isCollidable + " frame_cnt " + tile.tileIDs.length;
+            this.text += " unlit";
     }
 
 }

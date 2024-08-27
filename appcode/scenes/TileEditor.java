@@ -15,6 +15,7 @@ import velocity.sprite.ui.FPSCounter;
 /**
  * Edit a selected tile in the TilemapEditor scene (selected in edit mode).
  */
+// TODO: Lights from the main TileMap aren't hidden when entering tile edit mode.
 public class TileEditor extends Scene {
     public TileEditor(String name, int uuid) {
         super(name, uuid);
@@ -26,7 +27,8 @@ public class TileEditor extends Scene {
         /* End of reusable sprite section. */
 
         /* Add sprites here (in sort order from 0 - array.length) */
-        sprites.add(new AreaLight(0.45f));
+        sprites.add(new LitBGTile(Point.zero, 0f, "Background Tile", "./res/bgtile.png"));
+        sprites.add(new AreaLight(0.25f));
         /* Stop adding sprites here. */
 
         /* Baked collision data here (written in by hand by developer) */

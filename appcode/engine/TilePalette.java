@@ -73,7 +73,16 @@ public class TilePalette {
         return Integer.parseInt(id);
     }
 
+    /**
+     * Get the tile size (in px) of this palette. If no tile size is known, compute it, then return
+     * the computed tile size.
+     * 
+     * @return Tile size.
+     */
     public int stride() {
+        if (stride == 0)
+            lookupTex(0);
+
         return stride;
     }
 
