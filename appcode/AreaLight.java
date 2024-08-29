@@ -11,4 +11,8 @@ public class AreaLight extends Sprite {
         super(Point.zero, 0f, "AreaLight");
         this.light = new SunLight(intensity);
     }
+
+    public void setIntensity(float intensity) {
+        this.light.setIntensity(intensity);
+    } 
 }

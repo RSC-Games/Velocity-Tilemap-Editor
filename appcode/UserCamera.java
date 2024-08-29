@@ -9,6 +9,8 @@ import velocity.util.Point;
 public class UserCamera extends Base2DCamera {
     int speed = -1;
     Point lastFrameMousePos = Point.zero;
+    Point tilemapCameraLoc = Point.zero;
+    Point paletteCameraLoc = Point.zero;
 
     public UserCamera(Point pos) {
         super(pos);
@@ -29,5 +31,17 @@ public class UserCamera extends Base2DCamera {
         }
 
         lastFrameMousePos = mouseCoords;
+    }
+
+    // Save camera state for tilemap editor mode.
+    public void enterPaletteMode() {
+        tilemapCameraLoc = this.pos.getPos();
+        this.pos.setPos(paletteCameraLoc);
+    }
+
+    // Save camera state for palette mode.
+    public void enterTilemapMode() {
+        paletteCameraLoc = this.pos.getPos();
+        this.pos.setPos(tilemapCameraLoc);
     }
 }

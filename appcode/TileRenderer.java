@@ -1,7 +1,7 @@
 package appcode;
 
 import appcode.engine.TileBase;
-import appcode.engine.TilePalette;
+import appcode.engine.TileSetDescriptor;
 import velocity.lighting.PointLight;
 import velocity.renderer.DrawInfo;
 import velocity.renderer.FrameBuffer;
@@ -18,7 +18,7 @@ public class TileRenderer extends Renderable {
     boolean playing = false;
     int frame;
     TileBase renderedTile;
-    TilePalette palette;
+    TileSetDescriptor palette;
 
     PointLight light;
 
@@ -38,7 +38,7 @@ public class TileRenderer extends Renderable {
      * 
      * @param palette Tile palette to use.
      */
-    public void setPalette(TilePalette palette) {
+    public void setPalette(TileSetDescriptor palette) {
         this.palette = palette;
     }
     

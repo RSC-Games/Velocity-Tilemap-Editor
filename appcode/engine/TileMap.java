@@ -63,7 +63,7 @@ public class TileMap extends Renderable {
     /**
      * The tile palette used for texture lookups.
      */
-    protected TilePalette palette;
+    protected TileSetDescriptor palette;
 
     /**
      * Counter for keeping track of the elapsed milliseconds for animations.
@@ -81,7 +81,7 @@ public class TileMap extends Renderable {
 
         this.tilemap = new HashMap<String, HashMap<Integer, TileBase[][]>>();
         this.tilemapLights = new HashMap<String, PointLight>();
-        this.palette = new TilePalette(palletePath);
+        this.palette = new TileSetDescriptor(palletePath);
         this.animCounter = new Counter();
         
         try {
@@ -369,7 +369,6 @@ public class TileMap extends Renderable {
         // If no light exists yet here, create one.
         if (!tilemapLights.containsKey(lightIdx)) {
             // Calculate the world light position (centered within a tile).
-            int stride = palette.stride();
             Point lightWorldCoords = worldTileToWorld(tileCoords);//.add(new Point(stride, stride).div(2));
 
             PointLight light = new PointLight(lightWorldCoords, tile.lightRadius, tile.intensity);
@@ -496,7 +495,7 @@ public class TileMap extends Renderable {
      * 
      * @return The internal palette.
      */
-    public TilePalette getPalette() {
+    public TileSetDescriptor getPalette() {
         return palette;
     }
 

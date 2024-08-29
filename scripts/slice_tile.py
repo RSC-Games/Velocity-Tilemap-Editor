@@ -53,6 +53,25 @@ def get_input_image():
     return file_path
 
 
+def get_palette_file():
+    """
+    Get a file stream from a palette (to be generated).
+
+    :return IOStream: The path to the image.
+    """
+
+    print("Please select the output file for the generated tile palette...")
+    root = tk.Tk()
+    root.withdraw()
+    file_path = filedialog.asksaveasfile(
+        filetypes=[("Tile Palettes (.vpalette)", [".vpalette"])], # File types
+        initialfile="new_palette.vpalette",
+        initialdir=os.getcwd(),  # Default path.
+        title="Save the generated tile palette..."  # Title.
+    )
+    return file_path
+
+
 def get_tile_stride():
     """
     Ask the user for the tile stride.
@@ -69,7 +88,7 @@ def get_tile_stride():
     return val
 
 
-def slice_image(in_file, stride):
+def slice_image(in_file, palette_stream, stride):
     img = PIL.Image.open(in_file)
     print(img.has_transparency_data)
 
@@ -87,6 +106,11 @@ def slice_image(in_file, stride):
             if (cropped.getcolors()[0] == (stride ** 2, (0, 0, 0, 0))):
                 #print(f"skipping zero alpha image {cropped.getcolors()}")
                 continue
+
+            # TILE_X, TILE_Y, TILE_Z, TILE_COUNT, PALETTE_TILE_ID0...N, WAIT_TIME, IS_COLLIDABLE, LIGHT_RAD, 
+            # LIGHT_INTENSITY\n
+
+            palette_stream.write(", ".join([str(x // stride), str(y // stride), "0", "1", str(tileID), "0", "0", "0"]) + "\n")
 
             cropped.save(f"tile_{tileID}.png", format="PNG")
             cropped.close()
@@ -137,12 +161,20 @@ def main():
         print("No output folder selected!")
         sys.exit(2)
 
+    palette_stream = get_palette_file()
+
+    if palette_stream == None:
+        print("No auto-generated palette file selected!")
+        sys.exit(3)
+
     os.chdir(out_folder_path)
     tile_stride = get_tile_stride()
     print(os.getcwd())
     
-    saved_tiles = slice_image(in_file_path, tile_stride)
-    remove_duplicates("tile_", saved_tiles)
+    saved_tiles = slice_image(in_file_path, palette_stream, tile_stride)
+    palette_stream.close()
+    print("Warning! Duplicate removal system disabled until autopalette supports it!")
+    #remove_duplicates("tile_", saved_tiles)
 
 if __name__ == "__main__":
     main()

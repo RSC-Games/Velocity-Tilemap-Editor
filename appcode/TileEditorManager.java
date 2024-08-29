@@ -11,12 +11,12 @@ import javax.swing.JOptionPane;
 import org.lwjgl.glfw.GLFW;
 
 import appcode.engine.TileBase;
+import appcode.engine.TileMap;
 import appcode.ui.AnchoredUIImage;
 import jnafilechooser.api.JnaFileChooser;
 import velocity.InputSystem;
 import velocity.Scene;
 import velocity.renderer.RendererImage;
-import velocity.shader.include.Float2;
 import velocity.sprite.Sprite;
 import velocity.system.Images;
 import velocity.util.Persistence;
@@ -147,7 +147,7 @@ public class TileEditorManager extends Sprite {
         // Allow alternate commands.
         if (InputSystem.getKey(KeyEvent.VK_CONTROL) || InputSystem.getKey(GLFW.GLFW_KEY_LEFT_CONTROL)) {
             // Try to load a tile if the user requests.
-            if (InputSystem.getKeyDown(KeyEvent.VK_T)) {
+            if (InputSystem.getKey(KeyEvent.VK_SHIFT) && InputSystem.getKeyDown(KeyEvent.VK_T)) {
                 String imgPath = searchForImage("Select a tile to use...", map.getPalette().getPath());
                 System.out.println("selected img file " + imgPath);
 
@@ -244,7 +244,7 @@ public class TileEditorManager extends Sprite {
             String res = JOptionPane.showInputDialog(message, initial);
 
             // Empty string indicates a cancel event.
-            if (res == "") return -1;
+            if (res == "" || res == null) return -1;
 
             // Sanity checking.
             try {
@@ -262,7 +262,7 @@ public class TileEditorManager extends Sprite {
             String res = JOptionPane.showInputDialog(message, initial);
 
             // Empty string indicates a cancel event.
-            if (res == "") return -1;
+            if (res == "" || res == null) return -1;
 
             // Sanity checking.
             try {

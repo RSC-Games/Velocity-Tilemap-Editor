@@ -8,7 +8,7 @@ import velocity.renderer.RendererImage;
 import velocity.system.Images;
 import velocity.util.TextFile;
 
-public class TilePalette {
+public class TileSetDescriptor {
     HashMap<Integer, RendererImage> tex2id;
     String folderPath;
     String assetPrefix;
@@ -26,7 +26,7 @@ public class TilePalette {
      * @param palettePath File path to the palette.
      */
     // TODO: Add matched key/value pairs for tile palettes and allow autopaletting.
-    public TilePalette(String palettePath) {
+    public TileSetDescriptor(String palettePath) {
         try {
             loadTilePaletteData(palettePath);
         }

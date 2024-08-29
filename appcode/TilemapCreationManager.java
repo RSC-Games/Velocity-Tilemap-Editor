@@ -9,6 +9,7 @@ import java.util.HashMap;
 import org.lwjgl.glfw.GLFW;
 
 import appcode.engine.TileBase;
+import appcode.engine.TileMap;
 import appcode.ui.AnchoredUIImage;
 import appcode.ui.TilemapCursor;
 import jnafilechooser.api.JnaFileChooser;
@@ -24,13 +25,15 @@ import velocity.util.TextFile;
 
 public class TilemapCreationManager extends Sprite {
     String tilemapPath = null;
-    String palettePath = null;
+    String tileDataPath = null;
+    String tilePalettePath = null;
     boolean tilemapLoaded = false;
     boolean isSaved = true;
 
     // Current editor state.
     boolean editMode = false;
     boolean grabTileMode = false;
+    boolean paletteMode = false;
 
     // Prevent repeating clicks.
     boolean clickOnceLeft = false;
@@ -42,11 +45,15 @@ public class TilemapCreationManager extends Sprite {
     RendererImage eyedropper;  // Grab tile mode.
     RendererImage wrench;  // Edit mode.
 
+    // NOTE: Palette map stored in persistence.
     TileMapRW map;
+    TileMap paletteMap;
     AnchoredUIImage selectedTile;
     TilemapCursor cursor;
     int currentLayer = 0;
     TileBase curTile = null;
+    AreaLight sceneLighting = null;
+    UserCamera mainCamera = null;
 
     public TilemapCreationManager() {
         super(Point.zero, 0f, "Tilemap Creation Manager");
@@ -58,13 +65,16 @@ public class TilemapCreationManager extends Sprite {
     @Override
     public void init() {
         selectedTile = (AnchoredUIImage)Scene.currentScene.getSpriteByName("SelectedTile");
+        sceneLighting = Scene.currentScene.getSprite(AreaLight.class);
         cursor = Scene.currentScene.getSprite(TilemapCursor.class);
+        mainCamera = Scene.currentScene.getSprite(UserCamera.class);
 
         // If the tilemap is already on persistence then fetch it back.
         if (Persistence.isPresent("EditableTilemap")) {
             map = (TileMapRW)Scene.currentScene.restoreFromPersistence("EditableTilemap");
             tilemapPath = (String)Persistence.pop("StashedTilemapPath");
-            palettePath = (String)Persistence.pop("StashedPalettePath");
+            tileDataPath = (String)Persistence.pop("StashedTileDataPath");
+            tilePalettePath = "";  // Prevent it from querying again.
             tilemapLoaded = true;
 
             // Restore the tile from persistence as well and write it back to the tilemap.
@@ -78,11 +88,15 @@ public class TilemapCreationManager extends Sprite {
         }
     }
     
+    // TODO: Clean up (move actions to their own functions).
     @Override
     public void tick() {
         // Once the paths have been found, if the in-game tilemap hasn't been loaded, then do that.
-        if (!tilemapLoaded && tilemapPath != null && palettePath != null) {
-            map = new TileMapRW("Editable Tilemap", tilemapPath, palettePath);
+        if (!tilemapLoaded && tilemapPath != null && tileDataPath != null && tilePalettePath != null) {
+            map = new TileMapRW("Editable Tilemap", tilemapPath, tileDataPath);
+            paletteMap = new TileMap("Tile Palette", tilePalettePath, tileDataPath);
+            Scene.currentScene.addSprite(cursor);
+            Scene.currentScene.moveToPersistence("TilemapPalette", paletteMap);
             Scene.currentScene.addSprite(map);
             map.sortOrder = -5;
             tilemapLoaded = true;
@@ -99,15 +113,26 @@ public class TilemapCreationManager extends Sprite {
             System.out.println("selected tilemap path " + tilemapPath);
         }
 
-        if (palettePath == null) {
+        if (tileDataPath == null) {
+            // Find the tile data.
+            HashMap<String, String> params = new HashMap<String, String>();
+            params.put("filter_name", "Tile Map Data (*.vtiledata)");
+            params.put("filter", "vtiledata");
+            params.put("default_name", "new_tilemap_data.vtiledata");
+
+            tileDataPath = searchForFile("Find Velocity tilemap data file...", System.getProperty("user.dir"), params);
+            System.out.println("selected tile data file " + tileDataPath);
+        }
+
+        if (tilePalettePath == null) {
             // Find the tile palette to use.
             HashMap<String, String> params = new HashMap<String, String>();
             params.put("filter_name", "Tile Palette (*.vpalette)");
             params.put("filter", "vpalette");
             params.put("default_name", "new_palette.vpalette");
 
-            palettePath = searchForFile("Find Velocity file palette to edit...", System.getProperty("user.dir"), params);
-            System.out.println("selected palette file " + palettePath);
+            tilePalettePath = searchForFile("Find Velocity tile palette...", System.getProperty("user.dir"), params);
+            System.out.println("selected palette file " + tilePalettePath);
         }
 
         // Allow the user to place tiles.
@@ -130,9 +155,31 @@ public class TilemapCreationManager extends Sprite {
                 // Stash the tilemap as well and crucial info.
                 Scene.currentScene.moveToPersistence("EditableTilemap", map);
                 Persistence.push("StashedTilemapPath", tilemapPath);
-                Persistence.push("StashedPalettePath", palettePath);
+                Persistence.push("StashedTileDataPath", tileDataPath);
 
                 Scene.scheduleSceneLoad("TileEditor");
+            }
+            else if (paletteMode) {
+                TileBase tile = paletteMap.getTile(cursor.cursorLoc, 0);
+
+                if (tile != null) {
+                    // Extract the tileID from its path.
+                    curTile = tile;
+
+                    // Load the image then set the image texture.
+                    selectedTile.img = paletteMap.getPalette().lookupTex(tile.tileIDs[0]);
+                    selectedTile.pos.setWH(new Point(selectedTile.img.getWidth(), selectedTile.img.getHeight()));
+                    currentTileImage = selectedTile.img;
+                    cursor.setHoverImage(currentTileImage);
+                    paletteMode = false;
+                    clickOnceLeft = true;
+
+                    // Switch current map back to the main map.
+                    Scene.currentScene.moveToPersistence("TilemapPalette", paletteMap);
+                    Scene.currentScene.restoreFromPersistence("EditableTilemap");
+                    sceneLighting.setIntensity(0.45f);
+                    mainCamera.enterTilemapMode();
+                }
             }
             else if (grabTileMode) {
                 TileBase tile = map.getTile(cursor.cursorLoc, currentLayer);
@@ -152,7 +199,6 @@ public class TilemapCreationManager extends Sprite {
                 }
             }
             else if (curTile != null) {
-                // TODO: Make a way to set the objects as collidable.
                 map.setTile(cursor.cursorLoc, currentLayer, curTile);
                 cursor.setHoverImage(currentTileImage);
                 isSaved = false;
@@ -193,7 +239,6 @@ public class TilemapCreationManager extends Sprite {
         }
 
         // Raise/lower the current layer.
-        // TODO: Gray out the other layers.
         if (InputSystem.getKeyDown(KeyEvent.VK_Q)) {
             currentLayer--;
             map.setCurrentLayer(currentLayer);
@@ -205,8 +250,19 @@ public class TilemapCreationManager extends Sprite {
 
         // Allow alternate commands.
         if (InputSystem.getKey(KeyEvent.VK_CONTROL) || InputSystem.getKey(GLFW.GLFW_KEY_LEFT_CONTROL)) {
-            // Try to load a tile if the user requests.
-            if (InputSystem.getKeyDown(KeyEvent.VK_T)) {
+            // Open the palette and allow the user to pick a tile.
+            if (!InputSystem.getKey(KeyEvent.VK_SHIFT) && InputSystem.getKeyDown(KeyEvent.VK_T)) {
+                // Swap out the current rendering map for the palette map.
+                Scene.currentScene.moveToPersistence("EditableTilemap", map);  // move old map here.
+                Scene.currentScene.restoreFromPersistence("TilemapPalette");
+                sceneLighting.setIntensity(1f);
+                cursor.setHoverImage(eyedropper);
+                mainCamera.enterPaletteMode();
+                paletteMode = true;
+            }
+
+            // Try to load a tile from disk if the user requests.
+            else if (InputSystem.getKey(KeyEvent.VK_SHIFT) && InputSystem.getKeyDown(KeyEvent.VK_T)) {
                 String imgPath = searchForImage("Select a tile to use...", map.getPalette().getPath());
                 System.out.println("selected img file " + imgPath);
 
@@ -246,8 +302,8 @@ public class TilemapCreationManager extends Sprite {
                 Scene.scheduleSceneLoad("TilemapEditor");
             }
 
-            // Enter eyedropper mode.
-            if (InputSystem.getKeyDown((KeyEvent.VK_G)) && !editMode) {
+            // Enter eyedropper mode. (Forbid in edit mode or palette select mode).
+            if (InputSystem.getKeyDown((KeyEvent.VK_G)) && !editMode && !paletteMode) {
                 cursor.setHoverImage(eyedropper);
                 grabTileMode = true;
             }
